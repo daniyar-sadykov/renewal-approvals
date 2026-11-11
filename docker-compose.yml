@@ -1,0 +1,26 @@
+# ЗАПАСНОЙ ПУТЬ, НЕ ПРОВЕРЕН: на машине разработки Docker нет, этот файл ни разу не запускался.
+# Основной способ поднять базу: npm run db:start (встроенный PostgreSQL, без Docker).
+#
+# Если всё же через Docker: docker compose up -d, затем npm run db:reset.
+# Порт, роль и базы те же, что у встроенного варианта, DATABASE_URL менять не нужно.
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: renewals
+      POSTGRES_PASSWORD: renewals
+      POSTGRES_DB: renewals
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - renewals_pgdata:/var/lib/postgresql
+      # Создаёт вторую базу renewals_test при первом запуске контейнера.
+      - ./db/docker-init.sql:/docker-entrypoint-initdb.d/10-test-database.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U renewals -d renewals"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  renewals_pgdata:

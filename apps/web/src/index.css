@@ -1,0 +1,29 @@
+/* Цвета и размеры из макета. Экраны и остальные стили появятся в фичах интерфейса. */
+:root {
+  --color-bg: #0b1b1d;
+  --color-card: #1d2c2e;
+  --color-text: #f5f7f7;
+  --color-text-secondary: #a9b8b9;
+  --color-accent: #80a3ff;
+  --radius-card: 20px;
+  --space-card: 24px;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+}
+
+.page {
+  width: min(1120px, 100% - 64px);
+  margin: 0 auto;
+  padding: 32px 0;
+}
+
+h1 {
+  margin: 0 0 16px;
+  font-size: 32px;
+}

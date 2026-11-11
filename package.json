@@ -1,0 +1,29 @@
+{
+  "name": "renewal-approvals",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "db:start": "node scripts/db-start.mjs",
+    "db:stop": "node scripts/db-stop.mjs",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:seed": "node scripts/db-seed.mjs",
+    "db:reset": "node scripts/db-reset.mjs",
+    "dev": "concurrently -k -n api,web -c blue,green \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
+    "test": "npm test -w apps/api",
+    "simulator": "python tools/provider_simulator.py",
+    "build": "npm run build -w apps/api && npm run build -w apps/web",
+    "typecheck": "npm run typecheck -w apps/api && npm run typecheck -w apps/web"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.7",
+    "embedded-postgres": "^18.6.0-beta.19",
+    "pg": "^8.23.1",
+    "typescript": "^5.9.3"
+  }
+}
