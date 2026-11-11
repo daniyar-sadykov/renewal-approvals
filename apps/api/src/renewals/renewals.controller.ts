@@ -1,12 +1,16 @@
 import { Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { CurrentUser } from '../auth/auth.decorators';
 import { AuthUser } from '../auth/auth.types';
+import { RenewalDecisionsService } from './renewal-decisions.service';
 import { RenewalsService } from './renewals.service';
 
 // Тело и query не читаются нигде: пользователь из сессии, пространство из сущности.
 @Controller()
 export class RenewalsController {
-  constructor(private readonly renewals: RenewalsService) {}
+  constructor(
+    private readonly renewals: RenewalsService,
+    private readonly decisions: RenewalDecisionsService,
+  ) {}
 
   @Get('resources')
   listResources(@CurrentUser() user: AuthUser) {
@@ -32,5 +36,17 @@ export class RenewalsController {
   @Get('renewal-requests/:id')
   getRequest(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.renewals.getRequest(user, id);
+  }
+
+  @Post('renewal-requests/:id/approve')
+  @HttpCode(200)
+  approve(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.decisions.approve(user, id);
+  }
+
+  @Post('renewal-requests/:id/reject')
+  @HttpCode(200)
+  reject(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.decisions.reject(user, id);
   }
 }

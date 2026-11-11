@@ -16,7 +16,7 @@ import {
   toResourceDto,
 } from './renewals.mappers';
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const ONE_ACTIVE_INDEX = 'renewal_requests_one_active_per_resource';
 
