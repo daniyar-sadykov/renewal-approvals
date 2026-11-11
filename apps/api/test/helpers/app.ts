@@ -1,9 +1,10 @@
 import { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import type { Server } from 'node:http';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
-import { configureApp } from '../../src/app.setup';
+import { APP_OPTIONS, configureApp } from '../../src/app.setup';
 import { loadConfig } from '../../src/config';
 import { APP_CONFIG } from '../../src/config.module';
 import { useTestDatabase } from './db';
@@ -28,7 +29,7 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<INest
     .overrideProvider(APP_CONFIG)
     .useValue(config)
     .compile();
-  const app = moduleRef.createNestApplication({ logger: ['error', 'warn'] });
+  const app = moduleRef.createNestApplication<NestExpressApplication>({ ...APP_OPTIONS, logger: ['error', 'warn'] });
   configureApp(app);
   await app.init();
   return app;

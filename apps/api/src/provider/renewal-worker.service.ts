@@ -8,6 +8,8 @@ import { ProviderClient, ProviderOperation, RENEWAL_PERIOD_MONTHS, renewalPayloa
 // Всё состояние задачи в базе (post_attempts, next_run_at, lease_until), ключ в заявке,
 // поэтому после перезапуска обработчик продолжает с того же места.
 // Сетевые вызовы идут только вне транзакций базы.
+// В лог идут id заявки, код, номер попытки и operation_id. Ключ идемпотентности не пишется:
+// по нему операцию можно запросить у провайдера.
 @Injectable()
 export class RenewalWorker implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger('RenewalWorker');
@@ -102,7 +104,7 @@ export class RenewalWorker implements OnApplicationBootstrap, OnModuleDestroy {
       // вернёт уже сохранённую операцию), а попытка учитывается. Если бы GET без ответа только откладывал
       // задачу, при полном отказе провайдера заявка висела бы в processing вечно и не дошла бы до needs_attention.
       if (found.kind === 'unknown') {
-        this.logger.log(`Заявка ${request.id}, ключ ${key}: GET без ответа (${found.code}), повтор POST`);
+        this.logger.log(`Заявка ${request.id}: GET без ответа (${found.code}), повтор POST`);
       }
     }
 
@@ -115,7 +117,7 @@ export class RenewalWorker implements OnApplicationBootstrap, OnModuleDestroy {
     if (result.kind === 'unknown') {
       // Результат неизвестен (503, таймаут, обрыв). Повтор с тем же ключом через паузу:
       // в эту паузу приложение можно остановить, после старта оно начнёт с GET.
-      this.logger.log(`Заявка ${request.id}, ключ ${key}: ${result.code}, попытка ${attempt} из ${max}`);
+      this.logger.log(`Заявка ${request.id}: ${result.code}, попытка ${attempt} из ${max}`);
       await this.jobs.scheduleRetry(job, { code: result.code, detail: `${result.code}, попытка ${attempt} из ${max}` });
       return;
     }
@@ -143,6 +145,6 @@ export class RenewalWorker implements OnApplicationBootstrap, OnModuleDestroy {
 
   private async needsAttention(job: ClaimedJob, request: JobRequest, code: string): Promise<void> {
     const done = await this.jobs.markNeedsAttention(request.id, code, job.leaseToken);
-    if (done) this.logger.warn(`Заявка ${request.id}, ключ ${request.idempotencyKey}: needs_attention (${code})`);
+    if (done) this.logger.warn(`Заявка ${request.id}: needs_attention (${code})`);
   }
 }

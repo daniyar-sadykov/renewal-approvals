@@ -1,13 +1,14 @@
 import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
-import { configureApp } from './app.setup';
+import { APP_OPTIONS, configureApp } from './app.setup';
 import { APP_CONFIG } from './config.module';
 import { AppConfig } from './config';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, APP_OPTIONS);
   configureApp(app);
   const config = app.get<AppConfig>(APP_CONFIG);
   await app.listen(config.port, config.host);

@@ -5,6 +5,10 @@ import { AppConfig } from '../config';
 // Продление всегда на 30 дней, у провайдера это один месяц. Одно значение на все заявки.
 export const RENEWAL_PERIOD_MONTHS = 1;
 
+// Предел тела ответа провайдера. Операция занимает сотни байт; больше значит ответ не тот,
+// а читать его целиком в память нельзя.
+export const MAX_RESPONSE_BYTES = 64 * 1024;
+
 // Тело POST /renewals. Строится только из снимка заявки, поэтому для одной заявки всегда одинаковое.
 export interface RenewalPayload {
   resource_id: string;
@@ -71,7 +75,9 @@ export class ProviderClient {
         redirect: 'error',
       });
       // Тело читается всегда, чтобы соединение освободилось, и под тем же таймаутом.
-      const text = await response.text();
+      const text = await readLimited(response, MAX_RESPONSE_BYTES);
+      // Слишком большой ответ не разбираем: что сделал провайдер, неизвестно.
+      if (text === null) return { kind: 'unknown', code: 'bad_response' };
       const status = response.status;
 
       if (status === 200) {
@@ -89,6 +95,31 @@ export class ProviderClient {
       clearTimeout(timer);
     }
   }
+}
+
+// Тело ответа целиком в памяти, но не больше limit байт: и по заявленному Content-Length, и по факту
+// (chunked или ложный заголовок). null: тело больше предела, чтение прервано.
+async function readLimited(response: Response, limit: number): Promise<string | null> {
+  const declared = Number(response.headers.get('content-length') ?? '');
+  if (Number.isFinite(declared) && declared > limit) {
+    await response.body?.cancel().catch(() => undefined);
+    return null;
+  }
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString('utf8');
 }
 
 function parseOperation(text: string): ProviderOperation | null {

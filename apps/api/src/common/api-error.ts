@@ -22,5 +22,8 @@ export const notFound = (message = 'Не найдено'): ApiError => new ApiEr
 
 export const conflict = (code: string, message: string): ApiError => new ApiError(HttpStatus.CONFLICT, code, message);
 
-export const validationError = (message: string): ApiError =>
+export const tooManyAttempts = (message = 'Слишком много неудачных попыток входа. Попробуйте через минуту'): ApiError =>
+  new ApiError(HttpStatus.TOO_MANY_REQUESTS, 'too_many_attempts', message);
+
+export const validationError =(message: string): ApiError =>
   new ApiError(HttpStatus.BAD_REQUEST, 'validation_error', message);

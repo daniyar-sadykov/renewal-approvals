@@ -61,6 +61,24 @@ async function getJson(pathAndQuery: string): Promise<{ status: number; body: un
   return { status: response.status, body: await response.json() };
 }
 
+// Тот же выбор интерпретатора, что в scripts/simulator.mjs: PYTHON; на Windows python, затем py;
+// на остальных python3, затем python. Годится тот, у кого `--version` завершается с кодом 0.
+function findPython(): string {
+  const candidates = process.env.PYTHON
+    ? [process.env.PYTHON]
+    : process.platform === 'win32'
+      ? ['python', 'py']
+      : ['python3', 'python'];
+  const found = candidates.find((command) => {
+    const result = spawnSync(command, ['--version'], { stdio: 'ignore', windowsHide: true });
+    return !result.error && result.status === 0;
+  });
+  if (!found) {
+    throw new Error(`Не найден Python 3 для имитатора (пробовал: ${candidates.join(', ')}). Укажите его в переменной PYTHON.`);
+  }
+  return found;
+}
+
 // Запускает свежий имитатор (данные в памяти пустые) и ждёт ответа GET /health.
 export async function startSimulator(): Promise<void> {
   if (child) throw new Error('Имитатор уже запущен этим тестом');
@@ -71,7 +89,7 @@ export async function startSimulator(): Promise<void> {
     );
   }
 
-  const python = process.env.PYTHON || 'python';
+  const python = findPython();
   const script = path.join(repoRoot, 'tools', 'provider_simulator.py');
   const proc = spawn(python, [script], {
     cwd: repoRoot,

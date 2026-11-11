@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { conflict, forbidden, notFound } from '../common/api-error';
-import { AccessService } from '../auth/access.service';
+import { AccessService, Queryable } from '../auth/access.service';
 import { AuthUser } from '../auth/auth.types';
 import { DatabaseService } from '../database/database.service';
 import {
@@ -77,9 +77,11 @@ export class RenewalsService {
   }
 
   // Заявка с проверкой доступа: нет такой (или id не uuid) 404, чужое пространство 403.
-  async findRequest(user: AuthUser, requestId: string): Promise<RenewalRequestDto> {
+  // После изменения читать тем же client до commit: если чтение упадёт, откатится и изменение,
+  // и клиент не получит 500 при уже сохранённой заявке.
+  async findRequest(user: AuthUser, requestId: string, client: Queryable = this.db.pool): Promise<RenewalRequestDto> {
     if (!UUID_PATTERN.test(requestId)) throw notFound('Заявка не найдена');
-    const { rows } = await this.db.query(`select ${REQUEST_COLUMNS} from ${REQUEST_FROM} where rr.id = $2`, [
+    const { rows } = await client.query(`select ${REQUEST_COLUMNS} from ${REQUEST_FROM} where rr.id = $2`, [
       user.id,
       requestId,
     ]);
@@ -92,7 +94,7 @@ export class RenewalsService {
   async createRequest(user: AuthUser, resourceId: string): Promise<RenewalRequestDto> {
     const id = randomUUID();
     try {
-      await this.db.withTransaction(async (client) => {
+      return await this.db.withTransaction(async (client) => {
         const resource = await client.query<{ workspace_id: string }>(
           'select workspace_id from resources where id = $1 for update',
           [resourceId],
@@ -124,11 +126,11 @@ export class RenewalsService {
            values ($1, $2, null, 'pending', 'created')`,
           [id, user.id],
         );
+        return this.findRequest(user, id, client);
       });
     } catch (error) {
       if (isActiveRequestViolation(error)) throw activeRequestExists();
       throw error;
     }
-    return this.findRequest(user, id);
   }
 }

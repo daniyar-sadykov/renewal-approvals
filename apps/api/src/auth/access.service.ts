@@ -11,7 +11,7 @@ export interface Membership {
 }
 
 // Запросы идут либо через пул, либо через client открытой транзакции.
-type Queryable = { query: PoolClient['query'] };
+export type Queryable ={ query: PoolClient['query'] };
 
 // Права пользователя в пространстве. Источник истины: таблица memberships.
 @Injectable()

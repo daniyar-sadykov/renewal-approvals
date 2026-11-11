@@ -1,11 +1,12 @@
 import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
 import type { ServerResponse } from 'node:http';
-import { unauthorized, validationError } from '../common/api-error';
+import { tooManyAttempts, unauthorized, validationError } from '../common/api-error';
 import { APP_CONFIG } from '../config.module';
 import { AppConfig } from '../config';
 import { DatabaseService } from '../database/database.service';
 import { AccessService, Membership } from './access.service';
 import { CurrentUser, Public } from './auth.decorators';
+import { LoginThrottle } from './login-throttle.service';
 import { AuthedRequest, AuthUser } from './auth.types';
 import { serializeCookie, SESSION_COOKIE } from './cookies';
 import { verifyPassword } from './password';
@@ -28,6 +29,7 @@ export class AuthController {
     private readonly db: DatabaseService,
     private readonly sessions: SessionService,
     private readonly access: AccessService,
+    private readonly throttle: LoginThrottle,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -48,13 +50,24 @@ export class AuthController {
       throw validationError('Укажите логин и пароль');
     }
 
+    // Проверка до пароля: под блокировкой scrypt не считается и ответ не зависит от пароля.
+    const blockedMs = this.throttle.blockedForMs(login);
+    if (blockedMs > 0) {
+      res.setHeader('Retry-After', String(Math.ceil(blockedMs / 1000)));
+      throw tooManyAttempts();
+    }
+
     const { rows } = await this.db.query<{ id: string; login: string; display_name: string; password_hash: string }>(
       'select id, login, display_name, password_hash from users where login = $1',
       [login],
     );
     const row = rows[0];
     const valid = await verifyPassword(password, row?.password_hash ?? DUMMY_HASH);
-    if (!row || !valid) throw unauthorized('Неверный логин или пароль');
+    if (!row || !valid) {
+      this.throttle.recordFailure(login);
+      throw unauthorized('Неверный логин или пароль');
+    }
+    this.throttle.recordSuccess(login);
 
     const token = await this.sessions.create(row.id);
     res.setHeader(

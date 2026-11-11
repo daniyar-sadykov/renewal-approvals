@@ -37,6 +37,7 @@ export function isProviderJobDuplicate(error: unknown): boolean {
 }
 
 // Решения согласующего: одобрение, отклонение и повтор отправки после needs_attention.
+// Ответ (итоговая заявка) читается тем же client до commit, а не отдельным запросом после него.
 // Порядок блокировок везде: сначала строка заявки, потом строка ресурса.
 // Создание заявки берёт только строку ресурса и чужие заявки не блокирует, поэтому взаимной блокировки нет.
 @Injectable()
@@ -102,7 +103,7 @@ export class RenewalDecisionsService {
 
   async approve(user: AuthUser, requestId: string): Promise<RenewalRequestDto> {
     try {
-      await this.db.withTransaction(async (client) => {
+      return await this.db.withTransaction(async (client) => {
         const request = await this.lockForDecision(client, user, requestId);
         if (request.status !== 'pending') throw invalidTransition('Одобрить можно только заявку на согласовании');
 
@@ -127,21 +128,21 @@ export class RenewalDecisionsService {
            values ($1, 0, 'queued', now())`,
           [request.id],
         );
+        return this.renewals.findRequest(user, requestId, client);
       });
     } catch (error) {
       if (isProviderJobDuplicate(error)) throw invalidTransition('Задача отправки для этой заявки уже есть');
       throw error;
     }
-    return this.renewals.findRequest(user, requestId);
   }
 
   async reject(user: AuthUser, requestId: string): Promise<RenewalRequestDto> {
-    await this.db.withTransaction(async (client) => {
+    return this.db.withTransaction(async (client) => {
       const request = await this.lockForDecision(client, user, requestId);
       if (request.status !== 'pending') throw invalidTransition('Отклонить можно только заявку на согласовании');
       await this.transition(client, request, 'pending', 'rejected', user.id, 'rejected', true);
+      return this.renewals.findRequest(user, requestId, client);
     });
-    return this.renewals.findRequest(user, requestId);
   }
 
   // Повтор после needs_attention: needs_attention -> processing, задача снова в очереди.
@@ -149,7 +150,7 @@ export class RenewalDecisionsService {
   // Счётчик POST обнуляется, но первым шагом обработчик спросит GET по ключу (verify_before_post):
   // операция могла выполниться у провайдера, тогда заявка завершится без нового POST.
   async retry(user: AuthUser, requestId: string): Promise<RenewalRequestDto> {
-    await this.db.withTransaction(async (client) => {
+    return this.db.withTransaction(async (client) => {
       const request = await this.lockForDecision(client, user, requestId);
       if (request.status !== 'needs_attention') {
         throw invalidTransition('Повторить можно только заявку в состоянии «Требует внимания»');
@@ -166,7 +167,7 @@ export class RenewalDecisionsService {
                verify_before_post = true, updated_at = now()`,
         [request.id],
       );
+      return this.renewals.findRequest(user, requestId, client);
     });
-    return this.renewals.findRequest(user, requestId);
   }
 }
