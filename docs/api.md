@@ -33,12 +33,12 @@
 | 401 | `unauthorized` | нет сессии, сессия истекла, неверный логин или пароль |
 | 403 | `forbidden` | чужое пространство или нет нужного права; изменяющий запрос с чужим `Origin` или `Sec-Fetch-Site: cross-site` |
 | 404 | `not_found` | нет такого ресурса, заявки или маршрута |
-| 413 | `payload_too_large` | тело запроса больше 100 КБ |
-| 429 | `too_many_attempts` | 10 неудачных входов по логину за минуту, вход закрыт до конца окна |
 | 409 | `active_request_exists` | у ресурса уже есть активная заявка |
 | 409 | `invalid_transition` | действие недопустимо в текущем состоянии заявки (повторное одобрение, одобрение отклонённой, отклонение одобренной, повтор заявки не в `needs_attention`) |
 | 409 | `resource_changed` | при одобрении срок или стоимость ресурса не совпали со снимком в заявке |
 | 409 | `conflict` | прочий конфликт состояния |
+| 413 | `payload_too_large` | тело запроса больше 100 КБ |
+| 429 | `too_many_attempts` | 10 неудачных входов по логину за минуту, вход закрыт до конца окна |
 | 500 | `internal_error` | сбой на сервере, подробности только в логе |
 
 ## Модели
@@ -143,7 +143,7 @@
   - `created`: заявка создана, `null -> pending`, автор инициатор;
   - `approved`: одобрена, `pending -> processing`, автор согласующий;
   - `rejected`: отклонена, `pending -> rejected`, автор согласующий;
-  - `provider_error`: попытка POST без результата (503, таймаут, обрыв), статус не меняется: `processing -> processing`, автор система, `detail` вида `http_503, попытка 1 из 3`;
+  - `provider_error`: попытка POST без результата (503, таймаут, обрыв, `bad_response`), статус не меняется: `processing -> processing`, автор система, `detail` вида `http_503, попытка 1 из 3`;
   - `completed`: провайдер подтвердил, срок сдвинут, `processing -> completed`, автор система, `detail` вида `operation_id <id>`;
   - `needs_attention`: подтверждения нет или оно не годится, `processing -> needs_attention`, автор система, `detail` это код причины (`attempts_exhausted`, `http_409`, `provider_mismatch`, `resource_changed` и т.п.);
   - `retry_requested`: повтор, `needs_attention -> processing`, автор согласующий.
@@ -297,7 +297,7 @@
 
 1. Если POST уже уходил (или это повтор), сначала `GET /renewals/{ключ}`. Операция есть: завершение.
 2. Попытка POST записывается в базу, потом уходит `POST /renewals` с `Idempotency-Key` и телом из снимка заявки.
-3. 200: завершение. 503, таймаут, обрыв: событие `provider_error`, следующий шаг через `PROVIDER_RETRY_DELAY_MS`. 4xx: `needs_attention`.
+3. 200: завершение. 503, таймаут, обрыв, `bad_response` (нечитаемое тело или ответ больше 64 КБ): событие `provider_error`, следующий шаг через `PROVIDER_RETRY_DELAY_MS`. 4xx: `needs_attention`.
 4. После `PROVIDER_MAX_POST_ATTEMPTS` попыток без подтверждения и последнего `GET`: `needs_attention`.
 
 Завершение одной транзакцией: заявка `completed`, `providerOperationId`, срок ресурса `oldExpiresOn -> newExpiresOn`, задача закрыта, событие `completed`. Повторная обработка срок не сдвигает: заявка уже не `processing`. Состояние задачи живёт в базе, поэтому после перезапуска обработчик продолжает с того же места тем же ключом.
