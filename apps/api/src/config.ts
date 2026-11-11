@@ -11,6 +11,8 @@ export interface AppConfig {
   providerTimeoutMs: number;
   workerPollMs: number;
   providerMaxPostAttempts: number;
+  // Флаг Secure у cookie сессии. Включать, когда API отдаётся по https.
+  cookieSecure: boolean;
 }
 
 function intFromEnv(env: NodeJS.ProcessEnv, name: string, fallback: number): number {
@@ -37,5 +39,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     providerTimeoutMs: intFromEnv(env, 'PROVIDER_TIMEOUT_MS', 5000),
     workerPollMs: intFromEnv(env, 'WORKER_POLL_MS', 1000),
     providerMaxPostAttempts: intFromEnv(env, 'PROVIDER_MAX_POST_ATTEMPTS', 3),
+    cookieSecure: env.COOKIE_SECURE === 'true',
   };
 }

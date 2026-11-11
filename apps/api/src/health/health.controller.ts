@@ -1,6 +1,8 @@
 import { Controller, Get, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { Public } from '../auth/auth.decorators';
 import { DatabaseService } from '../database/database.service';
 
+@Public()
 @Controller('health')
 export class HealthController {
   private readonly logger = new Logger(HealthController.name);
