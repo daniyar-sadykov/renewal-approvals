@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+.pgdata/
+*.log
+__pycache__/
+
+# Задание работодателя, в репозиторий не кладётся
+Fullstack_*.pdf
