@@ -1,10 +1,12 @@
-import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, OnApplicationShutdown } from '@nestjs/common';
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { PG_POOL } from './database.constants';
 
 // Тонкая обёртка над пулом pg: запрос вне транзакции и транзакция с одним клиентом.
 @Injectable()
-export class DatabaseService implements OnModuleDestroy {
+export class DatabaseService implements OnApplicationShutdown {
+  private closed = false;
+
   constructor(@Inject(PG_POOL) readonly pool: Pool) {}
 
   query<R extends QueryResultRow = QueryResultRow>(text: string, params?: unknown[]): Promise<QueryResult<R>> {
@@ -27,7 +29,11 @@ export class DatabaseService implements OnModuleDestroy {
     }
   }
 
-  async onModuleDestroy(): Promise<void> {
+  // Пул закрывается последним: после остановки обработчика (onModuleDestroy) и HTTP-сервера.
+  // Иначе шаг обработчика, который дорабатывает при остановке, остался бы без базы.
+  async onApplicationShutdown(): Promise<void> {
+    if (this.closed) return;
+    this.closed = true;
     await this.pool.end();
   }
 }

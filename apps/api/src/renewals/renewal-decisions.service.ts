@@ -36,7 +36,7 @@ export function isProviderJobDuplicate(error: unknown): boolean {
   return e?.code === '23505' && e.constraint === PROVIDER_JOBS_REQUEST_UNIQUE;
 }
 
-// Решения согласующего: одобрение и отклонение (и повтор у следующего исполнителя).
+// Решения согласующего: одобрение, отклонение и повтор отправки после needs_attention.
 // Порядок блокировок везде: сначала строка заявки, потом строка ресурса.
 // Создание заявки берёт только строку ресурса и чужие заявки не блокирует, поэтому взаимной блокировки нет.
 @Injectable()
@@ -140,6 +140,32 @@ export class RenewalDecisionsService {
       const request = await this.lockForDecision(client, user, requestId);
       if (request.status !== 'pending') throw invalidTransition('Отклонить можно только заявку на согласовании');
       await this.transition(client, request, 'pending', 'rejected', user.id, 'rejected', true);
+    });
+    return this.renewals.findRequest(user, requestId);
+  }
+
+  // Повтор после needs_attention: needs_attention -> processing, задача снова в очереди.
+  // Ключ и тело прежние (они из снимка заявки), поэтому у провайдера не появится вторая операция.
+  // Счётчик POST обнуляется, но первым шагом обработчик спросит GET по ключу (verify_before_post):
+  // операция могла выполниться у провайдера, тогда заявка завершится без нового POST.
+  async retry(user: AuthUser, requestId: string): Promise<RenewalRequestDto> {
+    await this.db.withTransaction(async (client) => {
+      const request = await this.lockForDecision(client, user, requestId);
+      if (request.status !== 'needs_attention') {
+        throw invalidTransition('Повторить можно только заявку в состоянии «Требует внимания»');
+      }
+      // decided_by не трогаем: решение об одобрении принято раньше, повтор это не новое решение.
+      await this.transition(client, request, 'needs_attention', 'processing', user.id, 'retry_requested', false);
+      await client.query('update renewal_requests set last_error_code = null where id = $1', [request.id]);
+      // Задача после needs_attention в состоянии failed. Upsert на случай, если её нет вовсе.
+      await client.query(
+        `insert into provider_jobs (request_id, post_attempts, state, next_run_at, lease_until, verify_before_post)
+         values ($1, 0, 'queued', now(), null, true)
+         on conflict (request_id) do update
+           set post_attempts = 0, state = 'queued', next_run_at = now(), lease_until = null,
+               verify_before_post = true, updated_at = now()`,
+        [request.id],
+      );
     });
     return this.renewals.findRequest(user, requestId);
   }

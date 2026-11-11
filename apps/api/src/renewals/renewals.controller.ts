@@ -49,4 +49,10 @@ export class RenewalsController {
   reject(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.decisions.reject(user, id);
   }
+
+  @Post('renewal-requests/:id/retry')
+  @HttpCode(200)
+  retry(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.decisions.retry(user, id);
+  }
 }

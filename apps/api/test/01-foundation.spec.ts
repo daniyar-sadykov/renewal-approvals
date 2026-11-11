@@ -200,6 +200,7 @@ describe('01: миграции и начальные данные', () => {
       '0001_workspaces_users_resources',
       '0002_renewal_requests',
       '0003_sessions',
+      '0004_provider_job_states',
     ]);
 
     expect(runDbScript('db-migrate')).toContain('новых миграций нет');
