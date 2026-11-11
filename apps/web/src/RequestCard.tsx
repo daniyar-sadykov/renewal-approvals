@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, errorText, type RequestDetails } from './api';
 import { CopyButton, LoadError, RequestActions, Skeleton, StatusBadge } from './components';
-import { eventKindText, formatDate, formatMoment, formatMoney, statusText } from './format';
+import {
+  eventDetailText,
+  eventKindText,
+  formatDate,
+  formatMoment,
+  formatMoney,
+  needsAttentionAdvice,
+  problemText,
+  problemWithCode,
+  statusText,
+} from './format';
 import { usePolling } from './hooks';
 
 type CardState =
@@ -98,7 +108,26 @@ export function RequestCard({ id, onChanged }: { id: string; onChanged: () => Pr
               <StatusBadge status={card.data.request.status} />
             </div>
             {card.data.request.status === 'processing' && (
-              <p className="muted">Заявка выполняется, страница обновляется сама.</p>
+              <p className="muted">
+                Заявка выполняется, страница обновляется сама.
+                {card.data.request.lastErrorCode &&
+                  ` Последняя попытка: ${problemWithCode(card.data.request.lastErrorCode)}. Обработчик повторит сам с тем же ключом.`}
+              </p>
+            )}
+            {card.data.request.status === 'needs_attention' && (
+              <div className="feedback feedback-error attention-note" role="note">
+                <p>
+                  <strong>Что случилось:</strong>{' '}
+                  {card.data.request.lastErrorCode
+                    ? problemWithCode(card.data.request.lastErrorCode)
+                    : 'подтверждения от провайдера нет'}
+                  .
+                </p>
+                <p>
+                  <strong>Что делать:</strong>{' '}
+                  {needsAttentionAdvice(card.data.request.lastErrorCode, card.data.request.canRetry)}
+                </p>
+              </div>
             )}
 
             <RequestActions request={card.data.request} onChanged={refresh} />
@@ -112,7 +141,9 @@ export function RequestCard({ id, onChanged }: { id: string; onChanged: () => Pr
               <p className="empty">Событий пока нет.</p>
             ) : (
               <ol className="history">
-                {card.data.events.map((event) => (
+                {card.data.events.map((event) => {
+                  const detail = eventDetailText(event.kind, event.detail);
+                  return (
                   <li key={event.id}>
                     <div className="history-head">
                       <span className="history-kind">{eventKindText(event.kind)}</span>
@@ -122,19 +153,26 @@ export function RequestCard({ id, onChanged }: { id: string; onChanged: () => Pr
                     </div>
                     <div className="history-body">
                       <span>
-                        {event.fromStatus ? (
+                        {event.fromStatus && event.fromStatus === event.toStatus ? (
+                          `${statusText(event.toStatus)}, статус не меняется`
+                        ) : (
                           <>
-                            {statusText(event.fromStatus)} <span aria-hidden="true">→</span>
-                            <span className="visually-hidden"> в </span>{' '}
+                            {event.fromStatus ? (
+                              <>
+                                {statusText(event.fromStatus)} <span aria-hidden="true">→</span>
+                                <span className="visually-hidden"> в </span>{' '}
+                              </>
+                            ) : null}
+                            {event.toStatus ? statusText(event.toStatus) : 'Без смены статуса'}
                           </>
-                        ) : null}
-                        {event.toStatus ? statusText(event.toStatus) : 'Без смены статуса'}
+                        )}
                       </span>
                       <span className="muted">{event.actor ? event.actor.displayName : 'Система'}</span>
                     </div>
-                    {event.detail && <p className="history-detail break">{event.detail}</p>}
+                    {detail && <p className="history-detail break">{detail}</p>}
                   </li>
-                ))}
+                  );
+                })}
               </ol>
             )}
           </section>
@@ -202,7 +240,16 @@ function RequestFields({ details }: { details: RequestDetails }) {
       </div>
       <div className="field-wide">
         <dt>Последняя ошибка</dt>
-        <dd>{request.lastErrorCode ? <code className="break">{request.lastErrorCode}</code> : 'Нет'}</dd>
+        <dd>
+          {request.lastErrorCode ? (
+            <>
+              {problemText(request.lastErrorCode)}{' '}
+              (<code className="break">{request.lastErrorCode}</code>)
+            </>
+          ) : (
+            'Нет'
+          )}
+        </dd>
       </div>
       <div className="field-wide">
         <dt>Номер заявки</dt>

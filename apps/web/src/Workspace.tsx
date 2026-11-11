@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, errorText, type Me, type RenewalRequest, type Resource } from './api';
 import { CreateRequestAction, LoadError, RequestActions, Skeleton, StatusBadge } from './components';
-import { formatDate, formatMoney, rolesText } from './format';
+import { formatDate, formatMoney, problemWithCode, rolesText } from './format';
 import { requestHref, useHashRoute, usePolling } from './hooks';
 import { RequestCard } from './RequestCard';
 
@@ -227,6 +227,12 @@ function RequestsSection({ requests, onChanged }: { requests: RenewalRequest[]; 
                 </td>
                 <td data-label="Статус">
                   <StatusBadge status={request.status} />
+                  {request.status === 'needs_attention' && (
+                    <div className="muted status-reason">
+                      {request.lastErrorCode ? problemWithCode(request.lastErrorCode) : 'Нет подтверждения провайдера'}.{' '}
+                      {request.canRetry ? 'Можно повторить отправку.' : 'Повторить может согласующий.'}
+                    </div>
+                  )}
                 </td>
                 <td data-label="Действия">
                   <div>

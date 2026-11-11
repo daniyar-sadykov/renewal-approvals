@@ -266,6 +266,17 @@ code {
   border-color: var(--color-rejected);
 }
 
+.status-reason {
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+.attention-note {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
 .feedback-ok {
   color: #d6f5e3;
   background: rgba(127, 216, 166, 0.1);
