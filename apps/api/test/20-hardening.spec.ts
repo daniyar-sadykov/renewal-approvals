@@ -23,7 +23,7 @@ async function countRows(db: Client, sql: string): Promise<number> {
   return (await db.query(`select count(*)::int as n from (${sql}) t`)).rows[0].n;
 }
 
-// Фича 20: доработки по итогам ревью: CSRF, только JSON, заголовки, сессии, попытки входа,
+// Защитные доработки: CSRF, только JSON, заголовки, сессии, попытки входа,
 // предел ответа провайдера, ответ после записи из той же транзакции.
 describe('20: защитные доработки', () => {
   let app: INestApplication;

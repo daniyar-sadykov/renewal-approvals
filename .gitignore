@@ -7,7 +7,9 @@ coverage/
 .pgdata/
 *.log
 __pycache__/
-.claude/worktrees/
 
 # Задание работодателя, в репозиторий не кладётся
 Fullstack_*.pdf
+
+# Рабочие заметки, в репозиторий не кладутся
+docs/tasks/
