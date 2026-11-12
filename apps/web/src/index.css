@@ -11,6 +11,9 @@
   --color-completed: #7fd8a6;
   --color-rejected: #ff9e9e;
   --color-attention: #ffb36b;
+  /* Цвета текста статуса: отклонена приглушённым, требует внимания красновато-оранжевым. */
+  --color-status-rejected: #9fb0b2;
+  --color-status-attention: #ff8f66;
   --radius-card: 20px;
   --radius-row: 12px;
   --space-card: 24px;
@@ -172,6 +175,11 @@ code {
   font-size: 28px;
 }
 
+/* Отказ 403 и 404 под заголовком карточки */
+.card > h1 + .feedback {
+  margin-top: 16px;
+}
+
 /* Кнопки */
 .button {
   display: inline-flex;
@@ -293,40 +301,60 @@ code {
   font-size: 15px;
 }
 
-/* Состояния заявки */
-.badge {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 700;
+/* Статус заявки: цветной текст без рамки и заливки, как на макете */
+.status {
+  font-size: 15px;
+  font-weight: 400;
   white-space: nowrap;
-  border: 1px solid currentColor;
 }
 
-.badge-pending {
+.status-pending {
   color: var(--color-accent);
-  background: rgba(128, 163, 255, 0.12);
 }
 
-.badge-processing {
+.status-processing {
   color: var(--color-processing);
-  background: rgba(242, 208, 139, 0.12);
 }
 
-.badge-completed {
+.status-completed {
   color: var(--color-completed);
-  background: rgba(127, 216, 166, 0.12);
 }
 
-.badge-rejected {
-  color: var(--color-rejected);
-  background: rgba(255, 158, 158, 0.1);
+.status-rejected {
+  color: var(--color-status-rejected);
 }
 
-.badge-needs_attention {
-  color: var(--color-attention);
-  background: rgba(255, 179, 107, 0.12);
+.status-needs_attention {
+  color: var(--color-status-attention);
+}
+
+/* Экран ресурса: текущий срок крупно */
+.expiry {
+  display: grid;
+  gap: 4px;
+  margin: 20px 0 4px;
+}
+
+.expiry-label {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.expiry-value {
+  font-size: 40px;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.resource-actions {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  margin-top: 20px;
+}
+
+.resource-link {
+  margin-bottom: 12px;
 }
 
 /* Сводка, как в макете */
@@ -350,7 +378,7 @@ code {
 }
 
 .stat-needs_attention {
-  color: var(--color-attention);
+  color: var(--color-status-attention);
 }
 
 /* Таблицы */

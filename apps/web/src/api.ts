@@ -69,7 +69,13 @@ export interface RequestDetails {
   events: RequestEvent[];
 }
 
-export type RequestAction = 'approve' | 'reject' | 'retry';
+export interface ResourceDetails {
+  resource: Resource;
+  // Все заявки ресурса, новые сверху.
+  requests: RenewalRequest[];
+}
+
+export type RequestAction ='approve' | 'reject' | 'retry';
 
 // kind: 'network' это сервер недоступен, 'http' это ответ с кодом ошибки.
 export class ApiError extends Error {
@@ -147,6 +153,7 @@ export const api = {
   logout: () => call<void>('/auth/logout', { method: 'POST', skipUnauthorizedHandler: true }),
   me: () => call<Me>('/auth/me', { skipUnauthorizedHandler: true }),
   resources: () => call<Resource[]>('/resources'),
+  resource: (id: string) => call<ResourceDetails>(`/resources/${encodeURIComponent(id)}`),
   requests: () => call<RenewalRequest[]>('/renewal-requests'),
   request: (id: string) => call<RequestDetails>(`/renewal-requests/${encodeURIComponent(id)}`),
   createRequest: (resourceId: string) =>

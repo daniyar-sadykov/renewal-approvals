@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, errorText, type Me, type RenewalRequest, type Resource } from './api';
 import { CreateRequestAction, LoadError, RequestActions, Skeleton, StatusBadge } from './components';
 import { formatDate, formatMoney, problemWithCode, rolesText } from './format';
-import { requestHref, useHashRoute, usePolling } from './hooks';
+import { requestHref, resourceHref, useHashRoute, usePolling } from './hooks';
 import { RequestCard } from './RequestCard';
+import { ResourceCard } from './ResourceCard';
 
 interface ListData {
   resources: Resource[];
@@ -39,14 +40,16 @@ export function Workspace({ me, onLogout }: { me: Me; onLogout: () => Promise<vo
 
   const refresh = useCallback(() => load(true), [load]);
 
-  // Возврат из карточки: тихо перечитать список и вернуть фокус на ссылку этой заявки.
+  // Возврат из карточки заявки или экрана ресурса: тихо перечитать список
+  // и вернуть фокус на ссылку этой заявки или этого ресурса.
   const previousRoute = useRef(route);
   useEffect(() => {
     const previous = previousRoute.current;
     previousRoute.current = route;
-    if (previous.view === 'request' && route.view === 'list') {
+    if (previous.view !== 'list' && route.view === 'list') {
       void refresh();
-      const link = document.querySelector<HTMLElement>(`[data-request-link="${CSS.escape(previous.id)}"]`);
+      const attribute = previous.view === 'request' ? 'data-request-link' : 'data-resource-link';
+      const link = document.querySelector<HTMLElement>(`[${attribute}="${CSS.escape(previous.id)}"]`);
       link?.focus();
     }
   }, [route, refresh]);
@@ -97,6 +100,8 @@ export function Workspace({ me, onLogout }: { me: Me; onLogout: () => Promise<vo
 
       {route.view === 'request' ? (
         <RequestCard key={route.id} id={route.id} onChanged={refresh} />
+      ) : route.view === 'resource' ? (
+        <ResourceCard key={route.id} id={route.id} onChanged={refresh} />
       ) : (
         <main className="stack">
           {refreshError && (
@@ -148,7 +153,13 @@ function ResourcesSection({ resources, onChanged }: { resources: Resource[]; onC
             {resources.map((resource) => (
               <tr key={resource.id}>
                 <th scope="row" data-label="Ресурс" className="cell-title">
-                  {resource.name}
+                  <a
+                    href={resourceHref(resource.id)}
+                    data-resource-link={resource.id}
+                    aria-label={`${resource.name}: срок и история заявок`}
+                  >
+                    {resource.name}
+                  </a>
                 </th>
                 <td data-label="Пространство">{resource.workspaceName}</td>
                 <td data-label="Срок">{formatDate(resource.expiresOn)}</td>

@@ -12,7 +12,7 @@ import {
   problemWithCode,
   statusText,
 } from './format';
-import { usePolling } from './hooks';
+import { resourceHref, usePolling } from './hooks';
 
 type CardState =
   | { state: 'loading' }
@@ -107,6 +107,12 @@ export function RequestCard({ id, onChanged }: { id: string; onChanged: () => Pr
               </h1>
               <StatusBadge status={card.data.request.status} />
             </div>
+            <p className="resource-link">
+              Ресурс:{' '}
+              <a href={resourceHref(card.data.request.resourceId)} aria-label={`${card.data.request.resourceName}: срок и история заявок`}>
+                {card.data.request.resourceName}
+              </a>
+            </p>
             {card.data.request.status === 'processing' && (
               <p className="muted">
                 Заявка выполняется, страница обновляется сама.

@@ -125,15 +125,14 @@ export function formatMoment(value: string | null | undefined): string {
 
 const NBSP = ' ';
 
-// Копейки в рубли: 128000 даёт «1 280,00 ₽». Целочисленная арифметика, без плавающей точки.
+// Копейки в рубли, как на макете: 128000 даёт «1 280,00 RUB». Целочисленная арифметика, без плавающей точки.
 export function formatMoney(minor: number, currency = 'RUB'): string {
   const negative = minor < 0;
   const abs = Math.abs(Math.trunc(minor));
   const rubles = Math.floor(abs / 100).toString();
   const kopecks = (abs % 100).toString().padStart(2, '0');
   const grouped = rubles.replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
-  const sign = currency === 'RUB' ? '₽' : currency;
-  return `${negative ? '-' : ''}${grouped},${kopecks}${NBSP}${sign}`;
+  return `${negative ? '-' : ''}${grouped},${kopecks}${NBSP}${currency}`;
 }
 
 export function rolesText(membership: Membership): string {

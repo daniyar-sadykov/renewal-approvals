@@ -3,8 +3,9 @@ import { api, ApiError, errorText, type RenewalRequest, type RequestAction, type
 import { statusText } from './format';
 import { requestHref, useBusyAction } from './hooks';
 
+// Статус заявки цветным текстом, как на макете. Текст остаётся, цвет только дополняет его.
 export function StatusBadge({ status }: { status: string }) {
-  return <span className={`badge badge-${status}`}>{statusText(status)}</span>;
+  return <span className={`status status-${status}`}>{statusText(status)}</span>;
 }
 
 interface ActionButtonProps {

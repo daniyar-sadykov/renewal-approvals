@@ -1,10 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export type Route = { view: 'list' } | { view: 'request'; id: string };
+export type Route = { view: 'list' } | { view: 'request'; id: string } | { view: 'resource'; id: string };
+
+function decode(value: string): string | null {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
 
 function parseHash(hash: string): Route {
-  const match = /^#\/requests\/([^/?#]+)$/.exec(hash);
-  if (match) return { view: 'request', id: decodeURIComponent(match[1]) };
+  const request = /^#\/requests\/([^/?#]+)$/.exec(hash);
+  const requestId = request ? decode(request[1]) : null;
+  if (requestId) return { view: 'request', id: requestId };
+  const resource = /^#\/resources\/([^/?#]+)$/.exec(hash);
+  const resourceId = resource ? decode(resource[1]) : null;
+  if (resourceId) return { view: 'resource', id: resourceId };
   return { view: 'list' };
 }
 
@@ -21,6 +33,10 @@ export function useHashRoute(): Route {
 
 export function requestHref(id: string): string {
   return `#/requests/${encodeURIComponent(id)}`;
+}
+
+export function resourceHref(id: string): string {
+  return `#/resources/${encodeURIComponent(id)}`;
 }
 
 // Опрос раз в intervalMs, пока active и вкладка видима. При возврате на вкладку сразу обновляет.
