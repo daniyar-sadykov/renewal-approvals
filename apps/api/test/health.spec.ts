@@ -1,27 +1,21 @@
 import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { configureApp } from '../src/app.setup';
-import { useTestDatabase } from './helpers/db';
+import { createTestApp, httpServer } from './helpers/app';
 
+// Приложение тестов: тестовая база, обработчик выключен, к провайдеру не ходит.
 describe('GET /api/health', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    useTestDatabase();
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication();
-    configureApp(app);
-    await app.init();
+    app = await createTestApp();
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('отдаёт 200, когда база отвечает', async () => {
-    const response = await request(app.getHttpServer()).get('/api/health');
+    const response = await request(httpServer(app)).get('/api/health');
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ status: 'ok', database: 'up' });
   });

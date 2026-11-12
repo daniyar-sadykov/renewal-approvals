@@ -3,7 +3,39 @@ import net from 'node:net';
 import { Client } from 'pg';
 import { createTestApp, loginAs } from './helpers/app';
 import { connectTestDb, resetTestDatabase } from './helpers/db';
-import { SIMULATOR_HOST, SIMULATOR_PORT, simulatorOperation, simulatorStats, startSimulator, stopSimulator } from './helpers/simulator';
+import { waitForStatus } from './helpers/flow';
+import {
+  SIMULATOR_HOST,
+  SIMULATOR_PORT,
+  SIMULATOR_URL,
+  simulatorOperation,
+  simulatorStats,
+  startSimulator,
+  stopSimulator,
+} from './helpers/simulator';
+import { waitFor } from './helpers/wait';
+
+// Обработчик включён и опрашивает часто: если бы задача появилась, он взял бы её за 50 мс и пошёл
+// к имитатору. Поэтому пустой имитатор после 409 значит, что отправки не было, а не что обработчика нет.
+const WORKER_ENV = {
+  PROVIDER_BASE_URL: SIMULATOR_URL,
+  PROVIDER_RETRY_DELAY_MS: '300',
+  PROVIDER_TIMEOUT_MS: '2000',
+  WORKER_POLL_MS: '50',
+};
+
+// Окно наблюдения после 409: двадцать с лишним циклов обработчика.
+const QUIET_WINDOW_MS = 1500;
+
+// Условие должно держаться всё окно, а не выполниться один раз.
+async function holdsFor<T>(probe: () => Promise<T>, ok: (value: T) => boolean, ms: number, what: string): Promise<void> {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    const value = await probe();
+    if (!ok(value)) throw new Error(`Нарушено: ${what}. Значение: ${JSON.stringify(value)}`);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
 
 // Фича 07: при одобрении срок и стоимость ресурса сверяются со снимком в заявке.
 // Расхождение: 409 resource_changed, заявка pending, задачи нет, провайдер не вызван.
@@ -13,13 +45,15 @@ describe('07: сверка со снимком при одобрении', () =>
 
   beforeAll(async () => {
     db = await connectTestDb();
-    await startSimulator();
   });
 
+  // Свежий имитатор на каждый случай: положительный контроль оставляет операцию по res-a-01.
   beforeEach(async () => {
     await app?.close();
+    await stopSimulator();
+    await startSimulator();
     resetTestDatabase();
-    app = await createTestApp();
+    app = await createTestApp({ worker: true, env: WORKER_ENV });
   });
 
   afterAll(async () => {
@@ -58,6 +92,14 @@ describe('07: сверка со снимком при одобрении', () =>
     expect(response.body).toEqual({ error: 'resource_changed', message: expect.any(String) });
     expect(await counts(created.id)).toEqual({ status: 'pending', jobs: 0, approved_events: 0 });
 
+    // Несколько циклов работающего обработчика: задача так и не появилась, заявка pending.
+    await holdsFor(
+      () => counts(created.id),
+      (c) => c.status === 'pending' && c.jobs === 0 && c.approved_events === 0,
+      QUIET_WINDOW_MS,
+      'после 409 нет задачи и одобрения',
+    );
+
     // Провайдер не вызван: у имитатора нет операций ни по ресурсу, ни по ключу.
     expect(await simulatorStats('res-a-01')).toEqual({ resource_id: 'res-a-01', operation_count: 0 });
     expect(await simulatorOperation(created.idempotencyKey)).toBeNull();
@@ -79,13 +121,23 @@ describe('07: сверка со снимком при одобрении', () =>
     const approved = await approver.post(`/api/renewal-requests/${next.body.id}/approve`);
     expect(approved.status).toBe(200);
     expect(approved.body.status).toBe('processing');
-    expect(await simulatorStats('res-a-01')).toMatchObject({ operation_count: 0 });
+
+    // Положительный контроль при тех же настройках: обычное одобрение доходит до имитатора.
+    // Значит, обработчик в этом файле работает, и пустой имитатор после 409 что-то доказывает.
+    await waitFor(() => simulatorStats('res-a-01'), (s) => s.operation_count === 1, { what: 'операция у имитатора' });
+    expect(await simulatorOperation(next.body.idempotencyKey)).toMatchObject({ started_count: 1 });
+    // Ключ устаревшей заявки так и не ушёл к провайдеру.
+    expect(await simulatorOperation(created.idempotencyKey)).toBeNull();
   });
 
-  it('ресурс без изменений: одобрение проходит', async () => {
+  it('ресурс без изменений: одобрение проходит и доходит до провайдера', async () => {
     const created = await createRequest();
     const approver = await loginAs(app, 'approver.alpha');
     expect((await approver.post(`/api/renewal-requests/${created.id}/approve`)).status).toBe(200);
+
+    await waitForStatus(db, created.id, 'completed');
+    expect(await simulatorStats('res-a-01')).toEqual({ resource_id: 'res-a-01', operation_count: 1 });
+    expect(await simulatorOperation(created.idempotencyKey)).toMatchObject({ started_count: 1 });
   });
 });
 
